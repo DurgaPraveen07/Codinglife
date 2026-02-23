@@ -24,7 +24,7 @@ import time
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # ══════════════════════════════════════════════════
 
-MODEL_NAME = "gemini-2.0-flash"   # Latest fast free model
+MODEL_NAME = "gemini-1.5-flash"   # Latest fast free model
 
 app = Flask(__name__, static_folder=".")
 CORS(app)

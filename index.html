@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ROBO AI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+    :root {
+      --bg:          #05080f;
+      --face-bg:     #080e1c;
+      --panel-bg:    #060c1a;
+      --col-normal:  #f5d800;
+      --col-listen:  #00e676;
+      --col-think:   #ff9800;
+      --col-error:   #ff1744;
+      --current:     var(--col-normal);
+      --current-glow:rgba(245,216,0,0.35);
+    }
+    body[data-state="normal"] { --current:var(--col-normal); --current-glow:rgba(245,216,0,0.35); }
+    body[data-state="listen"] { --current:var(--col-listen); --current-glow:rgba(0,230,118,0.35); }
+    body[data-state="think"]  { --current:var(--col-think);  --current-glow:rgba(255,152,0,0.35); }
+    body[data-state="error"]  { --current:var(--col-error);  --current-glow:rgba(255,23,68,0.35); }
+
+    html, body {
+      width:100%; height:100%;
+      background:var(--bg);
+      font-family:'Orbitron',sans-serif;
+      overflow:hidden;
+      color:var(--current);
+      transition:color 0.4s;
+    }
+    body::after {
+      content:''; position:fixed; inset:0;
+      background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 4px);
+      pointer-events:none; z-index:998;
+    }
+
+    /* ════ HEADER ════ */
+    #header {
+      position:fixed; top:0; left:0; right:0;
+      text-align:center; padding:16px 0 6px; z-index:20; pointer-events:none;
+    }
+    #header h1 {
+      font-size:clamp(26px,4.5vw,48px); font-weight:900; letter-spacing:10px;
+      color:var(--current);
+      text-shadow:0 0 20px var(--current),0 0 50px var(--current-glow);
+      transition:color 0.4s,text-shadow 0.4s;
+    }
+    #header p {
+      font-family:'Share Tech Mono',monospace;
+      font-size:clamp(9px,1.1vw,13px); color:rgba(255,255,255,0.35);
+      letter-spacing:3px; margin-top:4px;
+    }
+
+    /* ════ LAYOUT: face left, panels right ════ */
+    #main-layout {
+      position:fixed;
+      top:80px; bottom:0; left:0; right:0;
+      display:flex;
+      gap:clamp(8px,1.5vw,20px);
+      padding:clamp(8px,1.5vw,18px);
+      align-items:stretch;
+    }
+
+    /* ════ ROBOT FACE ════ */
+    #face-wrap {
+      flex:1;
+      min-width:0;
+      border-radius:18px;
+      background:var(--face-bg);
+      border:2.5px solid var(--current);
+      box-shadow:
+        0 0 0 5px rgba(0,0,0,0.5),
+        0 0 0 9px #0a1020,
+        0 0 0 13px #060d18,
+        0 0 40px var(--current-glow),
+        0 0 80px rgba(0,0,0,0.6);
+      transition:border-color 0.4s,box-shadow 0.4s;
+      display:flex; flex-direction:column; align-items:center;
+      overflow:hidden;
+    }
+    #face-label {
+      font-family:'Share Tech Mono',monospace;
+      font-size:clamp(8px,0.8vw,11px); letter-spacing:4px;
+      color:rgba(255,255,255,0.15); margin-top:14px;
+    }
+    #eyes-row {
+      display:flex; gap:clamp(24px,5vw,80px);
+      margin:auto; position:relative; top:-2%;
+    }
+    .eye-socket {
+      position:relative;
+      width:clamp(90px,13vw,185px); aspect-ratio:1;
+      border-radius:50%; display:flex; align-items:center; justify-content:center;
+    }
+    .eye-ring { position:absolute; border-radius:50%; transition:all 0.4s; }
+    .eye-ring-1 { inset:0;   background:radial-gradient(circle,rgba(30,20,0,0.8),rgba(20,15,0,0.95)); border:2px solid; border-color:color-mix(in srgb,var(--current) 20%,transparent); }
+    .eye-ring-2 { inset:10%; background:radial-gradient(circle,var(--current),color-mix(in srgb,var(--current) 60%,black)); opacity:0.18; }
+    .eye-ring-3 { inset:18%; background:radial-gradient(circle,var(--current),color-mix(in srgb,var(--current) 80%,black)); opacity:0.25; }
+    .eye-ring-4 { inset:26%; background:radial-gradient(circle,var(--current),color-mix(in srgb,var(--current) 90%,black)); opacity:0.4; }
+    .eye-ring-5 { inset:36%; background:var(--current); opacity:0.7; }
+    .eye-ring-6 { inset:44%; background:#000; }
+    .eye-pupil  { position:absolute; width:16%; aspect-ratio:1; border-radius:50%; background:#111; top:28%; left:52%; }
+    .eye-shine  { position:absolute; width:10%; aspect-ratio:1; border-radius:50%; background:rgba(255,255,255,0.7); top:22%; left:56%; }
+    .eye-lid    { position:absolute; top:12%; width:35%; height:3px; border-radius:3px; background:var(--current); box-shadow:0 0 8px var(--current); z-index:5; transition:all 0.4s; }
+
+    .eye-socket.pulse .eye-ring-5 { animation:eye-pulse 1s ease-in-out infinite; }
+    @keyframes eye-pulse { 0%,100%{opacity:0.7;} 50%{opacity:1;box-shadow:0 0 20px var(--current);} }
+    .eye-ring-5,.eye-ring-6,.eye-pupil,.eye-shine { animation:blink 6s ease-in-out infinite; }
+    @keyframes blink { 0%,90%,100%{transform:scaleY(1);} 95%{transform:scaleY(0.06);} }
+
+    /* mouth */
+    #mouth-wrap { margin-bottom:6%; display:flex; flex-direction:column; align-items:center; gap:8px; }
+    #mouth-oval {
+      width:clamp(44px,6vw,80px); aspect-ratio:1.4/1; border-radius:50%;
+      background:var(--current);
+      box-shadow:0 0 20px var(--current),0 0 40px var(--current-glow);
+      animation:mouth-talk 0.35s ease-in-out infinite alternate; display:none;
+      transition:background 0.4s,box-shadow 0.4s;
+    }
+    @keyframes mouth-talk { from{transform:scaleY(0.35);} to{transform:scaleY(1) scaleX(1.1);} }
+    #mouth-smile svg { width:clamp(70px,10vw,130px); overflow:visible; }
+    #smile-path { fill:none; stroke:var(--current); stroke-width:5; stroke-linecap:round; filter:drop-shadow(0 0 6px var(--current)); transition:stroke 0.4s; }
+    #mouth-wave { display:none; gap:4px; align-items:center; }
+    .wbar { width:clamp(4px,0.6vw,8px); border-radius:4px; background:var(--current); box-shadow:0 0 8px var(--current); animation:wbar-b 0.6s ease-in-out infinite alternate; transition:background 0.4s; }
+    .wbar:nth-child(1){height:10px;animation-delay:0s;}
+    .wbar:nth-child(2){height:20px;animation-delay:0.1s;}
+    .wbar:nth-child(3){height:30px;animation-delay:0.2s;}
+    .wbar:nth-child(4){height:20px;animation-delay:0.3s;}
+    .wbar:nth-child(5){height:10px;animation-delay:0.4s;}
+    @keyframes wbar-b { from{transform:scaleY(0.3);} to{transform:scaleY(1);} }
+    #status-label {
+      font-size:clamp(12px,1.8vw,20px); font-weight:700; letter-spacing:5px;
+      color:var(--current); text-shadow:0 0 14px var(--current);
+      transition:color 0.4s,text-shadow 0.4s; min-height:24px;
+    }
+
+    /* ════ RIGHT PANEL COLUMN ════ */
+    #right-col {
+      width:clamp(240px,28vw,360px);
+      display:flex; flex-direction:column; gap:10px;
+    }
+
+    /* ── VOICE / STT PANEL ── */
+    #voice-panel {
+      background:var(--panel-bg);
+      border:2px solid var(--current);
+      border-radius:14px;
+      padding:14px;
+      display:flex; flex-direction:column; gap:10px;
+      transition:border-color 0.4s,box-shadow 0.4s;
+      box-shadow:0 0 20px var(--current-glow);
+    }
+    #voice-panel-title {
+      font-size:clamp(9px,0.9vw,11px); letter-spacing:4px;
+      color:rgba(255,255,255,0.3); text-align:center;
+    }
+
+    /* Big MIC button */
+    #mic-btn {
+      width:100%; padding:14px 0;
+      background:transparent;
+      border:2px solid var(--current);
+      border-radius:10px; cursor:pointer;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:6px; color:var(--current);
+      font-family:'Orbitron',sans-serif;
+      font-size:clamp(10px,1vw,13px); font-weight:700; letter-spacing:3px;
+      transition:all 0.3s;
+      box-shadow:inset 0 0 30px rgba(0,0,0,0.3);
+    }
+    #mic-btn:hover { background:rgba(245,216,0,0.06); box-shadow:0 0 20px var(--current-glow); }
+    #mic-btn.recording {
+      border-color:var(--col-listen);
+      background:rgba(0,230,118,0.08);
+      box-shadow:0 0 0 3px rgba(0,230,118,0.2),0 0 30px rgba(0,230,118,0.4);
+      animation:mic-glow 1s ease-in-out infinite;
+    }
+    @keyframes mic-glow { 0%,100%{box-shadow:0 0 15px rgba(0,230,118,0.4);} 50%{box-shadow:0 0 40px rgba(0,230,118,0.8);} }
+    #mic-icon { font-size:clamp(28px,3.5vw,44px); line-height:1; }
+    #mic-status-txt {
+      font-family:'Share Tech Mono',monospace;
+      font-size:clamp(9px,0.85vw,11px); color:rgba(255,255,255,0.4);
+      letter-spacing:2px; text-align:center;
+    }
+
+    /* Live voice waveform visualiser */
+    #voice-viz {
+      height:40px;
+      display:flex; align-items:center; justify-content:center; gap:3px;
+      opacity:0; transition:opacity 0.3s;
+    }
+    #voice-viz.active { opacity:1; }
+    .vbar {
+      width:4px; border-radius:3px;
+      background:var(--col-listen);
+      box-shadow:0 0 6px var(--col-listen);
+      transform:scaleY(0.2);
+      transition:transform 0.05s;
+    }
+
+    /* Live transcript box */
+    #transcript-box-wrap { display:flex; flex-direction:column; gap:5px; }
+    #transcript-label {
+      font-size:clamp(8px,0.8vw,10px); letter-spacing:3px;
+      color:rgba(255,255,255,0.25);
+    }
+    #transcript-box {
+      width:100%; min-height:54px; max-height:80px;
+      background:rgba(0,0,0,0.4);
+      border:1.5px solid rgba(0,230,118,0.25);
+      border-radius:8px; padding:10px 12px;
+      font-family:'Share Tech Mono',monospace;
+      font-size:clamp(11px,1.05vw,13px);
+      color:#c8ffd8; letter-spacing:0.5px; line-height:1.55;
+      resize:none; outline:none; overflow-y:auto;
+      transition:border-color 0.3s,box-shadow 0.3s;
+    }
+    #transcript-box.active {
+      border-color:rgba(0,230,118,0.6);
+      box-shadow:0 0 10px rgba(0,230,118,0.2);
+    }
+    #transcript-box::placeholder { color:rgba(255,255,255,0.15); }
+
+    /* ── TEXT INPUT PANEL ── */
+    #text-panel {
+      background:var(--panel-bg);
+      border:2px solid rgba(245,216,0,0.25);
+      border-radius:14px; padding:14px;
+      display:flex; flex-direction:column; gap:8px;
+      flex:1;
+    }
+    #text-panel-title {
+      font-size:clamp(8px,0.8vw,10px); letter-spacing:3px;
+      color:rgba(255,255,255,0.25);
+    }
+    #text-input {
+      width:100%; background:rgba(0,0,0,0.4);
+      border:1.5px solid rgba(245,216,0,0.2);
+      border-radius:8px; padding:10px 12px;
+      font-family:'Share Tech Mono',monospace;
+      font-size:clamp(11px,1.05vw,13px); color:#e8e0a8;
+      letter-spacing:0.5px; outline:none;
+      transition:border-color 0.3s,box-shadow 0.3s;
+    }
+    #text-input::placeholder { color:rgba(255,255,255,0.15); }
+    #text-input:focus {
+      border-color:rgba(245,216,0,0.5);
+      box-shadow:0 0 10px rgba(245,216,0,0.15);
+    }
+    #send-btn {
+      width:100%; padding:10px 0;
+      background:transparent; border:1.5px solid var(--current);
+      border-radius:8px; color:var(--current);
+      font-family:'Orbitron',sans-serif; font-size:clamp(10px,1vw,12px);
+      font-weight:700; letter-spacing:3px; cursor:pointer;
+      transition:all 0.2s;
+    }
+    #send-btn:hover { background:rgba(245,216,0,0.08); box-shadow:0 0 14px var(--current-glow); }
+
+    /* ── CHAT LOG PANEL ── */
+    #log-panel {
+      background:var(--panel-bg);
+      border:2px solid rgba(255,255,255,0.06);
+      border-radius:14px; padding:12px;
+      display:flex; flex-direction:column; gap:6px;
+      min-height:120px; max-height:clamp(120px,18vh,200px); overflow:hidden;
+    }
+    #log-panel-title {
+      font-size:clamp(8px,0.8vw,10px); letter-spacing:3px;
+      color:rgba(255,255,255,0.2); flex-shrink:0;
+    }
+    #chat-log {
+      overflow-y:auto; display:flex; flex-direction:column; gap:2px; flex:1;
+    }
+    #chat-log::-webkit-scrollbar{width:3px;}
+    #chat-log::-webkit-scrollbar-thumb{background:rgba(245,216,0,0.2);border-radius:2px;}
+    .log-line {
+      font-family:'Share Tech Mono',monospace;
+      font-size:clamp(10px,0.95vw,12px); line-height:1.55; letter-spacing:0.5px;
+      animation:slide-in 0.2s ease;
+    }
+    @keyframes slide-in { from{opacity:0;transform:translateX(-5px);} to{opacity:1;transform:translateX(0);} }
+    .tag { font-family:'Orbitron',sans-serif; font-size:0.82em; font-weight:700; }
+    .tag-robo  { color:#f5d800; }
+    .tag-info  { color:#5ab4d4; }
+    .tag-you   { color:#ffffff; }
+    .tag-error { color:#ff1744; }
+    .tag-listen{ color:#00e676; }
+    .tag-think { color:#ff9800; }
+    .log-text  { color:rgba(200,210,220,0.75); }
+
+    /* corners */
+    .corner{position:fixed;width:26px;height:26px;border-color:rgba(245,216,0,0.2);border-style:solid;z-index:5;}
+    .c-tl{top:8px;left:8px;border-width:2px 0 0 2px;}
+    .c-tr{top:8px;right:8px;border-width:2px 2px 0 0;}
+    .c-bl{bottom:8px;left:8px;border-width:0 0 2px 2px;}
+    .c-br{bottom:8px;right:8px;border-width:0 2px 2px 0;}
+  </style>
+</head>
+<body data-state="normal">
+<div class="corner c-tl"></div><div class="corner c-tr"></div>
+<div class="corner c-bl"></div><div class="corner c-br"></div>
+
+<!-- HEADER -->
+<div id="header">
+  <h1>ROBO AI</h1>
+  <p>Voice AI Assistant &nbsp;|&nbsp; Speak or Type your question</p>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div id="main-layout">
+
+  <!-- ══ ROBOT FACE ══ -->
+  <div id="face-wrap">
+    <div id="face-label">-- ROBO AI | VOICE ASSISTANT --</div>
+    <div id="eyes-row">
+      <!-- Left Eye -->
+      <div class="eye-socket" id="eyeL">
+        <div class="eye-ring eye-ring-1"></div><div class="eye-ring eye-ring-2"></div>
+        <div class="eye-ring eye-ring-3"></div><div class="eye-ring eye-ring-4"></div>
+        <div class="eye-ring eye-ring-5"></div><div class="eye-ring eye-ring-6"></div>
+        <div class="eye-pupil"></div><div class="eye-shine"></div><div class="eye-lid"></div>
+      </div>
+      <!-- Right Eye -->
+      <div class="eye-socket" id="eyeR">
+        <div class="eye-ring eye-ring-1"></div><div class="eye-ring eye-ring-2"></div>
+        <div class="eye-ring eye-ring-3"></div><div class="eye-ring eye-ring-4"></div>
+        <div class="eye-ring eye-ring-5"></div><div class="eye-ring eye-ring-6"></div>
+        <div class="eye-pupil"></div><div class="eye-shine"></div><div class="eye-lid"></div>
+      </div>
+    </div>
+    <div id="mouth-wrap">
+      <div id="mouth-smile"><svg viewBox="0 0 160 60"><path id="smile-path" d="M 10 15 Q 80 58 150 15"/></svg></div>
+      <div id="mouth-oval"></div>
+      <div id="mouth-wave">
+        <div class="wbar"></div><div class="wbar"></div><div class="wbar"></div>
+        <div class="wbar"></div><div class="wbar"></div>
+      </div>
+      <div id="status-label">READY</div>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT COLUMN ══ -->
+  <div id="right-col">
+
+    <!-- ── VOICE / STT PANEL ── -->
+    <div id="voice-panel">
+      <div id="voice-panel-title">◈ VOICE INPUT — STT</div>
+
+      <!-- BIG MIC BUTTON -->
+      <button id="mic-btn" onclick="toggleMic()">
+        <span id="mic-icon">🎤</span>
+        <span id="mic-label">CLICK TO SPEAK</span>
+        <span id="mic-status-txt">MICROPHONE READY</span>
+      </button>
+
+      <!-- Live waveform -->
+      <div id="voice-viz" id="voice-viz">
+        <div class="vbar" id="vb0"></div><div class="vbar" id="vb1"></div>
+        <div class="vbar" id="vb2"></div><div class="vbar" id="vb3"></div>
+        <div class="vbar" id="vb4"></div><div class="vbar" id="vb5"></div>
+        <div class="vbar" id="vb6"></div><div class="vbar" id="vb7"></div>
+        <div class="vbar" id="vb8"></div><div class="vbar" id="vb9"></div>
+        <div class="vbar" id="vb10"></div><div class="vbar" id="vb11"></div>
+        <div class="vbar" id="vb12"></div><div class="vbar" id="vb13"></div>
+        <div class="vbar" id="vb14"></div>
+      </div>
+
+      <!-- Live transcript textbox -->
+      <div id="transcript-box-wrap">
+        <div id="transcript-label">◈ LIVE TRANSCRIPT</div>
+        <textarea id="transcript-box" rows="3" placeholder="Your speech will appear here in real-time..." readonly></textarea>
+      </div>
+    </div>
+
+    <!-- ── TEXT INPUT PANEL ── -->
+    <div id="text-panel">
+      <div id="text-panel-title">◈ TEXT INPUT</div>
+      <input id="text-input" type="text" placeholder="Or type your question here..." onkeydown="handleKey(event)" autocomplete="off"/>
+      <button id="send-btn" onclick="sendText()">▶ SEND MESSAGE</button>
+    </div>
+
+    <!-- ── CHAT LOG ── -->
+    <div id="log-panel">
+      <div id="log-panel-title">◈ CONVERSATION LOG</div>
+      <div id="chat-log"></div>
+    </div>
+
+  </div><!-- /right-col -->
+</div><!-- /main-layout -->
+
+<script>
+// ════════════════════════════════════════════════
+//  CONFIG
+// ════════════════════════════════════════════════
+const API_URL = '/chat';
+const hasSR   = 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
+const hasTTS  = 'speechSynthesis' in window;
+
+let isRecording   = false;
+let recognition   = null;
+let isSpeaking    = false;
+let audioCtx      = null;
+let analyser      = null;
+let micStream     = null;
+let vizFrame      = null;
+
+// ════════════════════════════════════════════════
+//  STATE MACHINE
+// ════════════════════════════════════════════════
+function setState(state, labelOverride) {
+  document.body.dataset.state = state;
+  const labels = { normal:'READY', listen:'LISTENING', think:'THINKING', error:'ERROR' };
+  document.getElementById('status-label').textContent = labelOverride || labels[state] || state.toUpperCase();
+
+  const oval  = document.getElementById('mouth-oval');
+  const smile = document.getElementById('mouth-smile');
+  const wave  = document.getElementById('mouth-wave');
+  oval.style.display = smile.style.display = wave.style.display = 'none';
+
+  if (state === 'listen') wave.style.display = 'flex';
+  else                    smile.style.display = 'block';
+
+  ['eyeL','eyeR'].forEach(id =>
+    document.getElementById(id).classList.toggle('pulse', state !== 'normal')
+  );
+
+  // mic btn style
+  document.getElementById('mic-btn').classList.toggle('recording', state === 'listen');
+  document.getElementById('mic-status-txt').textContent =
+    state === 'listen'  ? '🔴 RECORDING — SPEAK NOW' :
+    state === 'think'   ? '⏳ PROCESSING...' :
+    state === 'error'   ? '❌ ERROR' :
+    isSpeaking          ? '🔊 ROBO SPEAKING' :
+                          'MICROPHONE READY';
+}
+
+function setSpeaking(on) {
+  isSpeaking = on;
+  const oval  = document.getElementById('mouth-oval');
+  const smile = document.getElementById('mouth-smile');
+  const wave  = document.getElementById('mouth-wave');
+  oval.style.display = smile.style.display = wave.style.display = 'none';
+  if (on) {
+    document.body.dataset.state = 'normal';
+    oval.style.display = 'block';
+    document.getElementById('status-label').textContent = 'SPEAKING';
+    document.getElementById('mic-status-txt').textContent = '🔊 ROBO IS SPEAKING';
+    ['eyeL','eyeR'].forEach(id => document.getElementById(id).classList.add('pulse'));
+  } else {
+    setState('normal');
+  }
+}
+
+// ════════════════════════════════════════════════
+//  LOG
+// ════════════════════════════════════════════════
+function log(type, text) {
+  const box  = document.getElementById('chat-log');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  const map = {
+    robo:  ['ROBO','tag-robo'], info:  ['INFO','tag-info'],
+    you:   ['YOU', 'tag-you'],  error: ['ERROR','tag-error'],
+    listen:['MIC', 'tag-listen'], think:['AI',  'tag-think'],
+  };
+  const [lbl, cls] = map[type] || ['SYS','tag-info'];
+  line.innerHTML = `<span class="tag ${cls}">[${lbl}]</span> <span class="log-text">${esc(text)}</span>`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ════════════════════════════════════════════════
+//  SEND MESSAGE
+// ════════════════════════════════════════════════
+async function send(message) {
+  message = message.trim();
+  if (!message) return;
+
+  // Clear transcript box after sending
+  document.getElementById('transcript-box').value = '';
+  document.getElementById('transcript-box').classList.remove('active');
+
+  log('you', message);
+  setState('think', 'THINKING');
+
+  try {
+    const res  = await fetch(API_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message})
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      log('error', data.error);
+      setState('error', 'ERROR');
+      setTimeout(()=>setState('normal'), 3000);
+      return;
+    }
+
+    log('robo', data.response);
+    speak(data.response);
+
+  } catch(e) {
+    log('error', 'Server offline — run: python app.py');
+    setState('error', 'ERROR');
+    setTimeout(()=>setState('normal'), 3000);
+  }
+}
+
+function sendText() {
+  const el = document.getElementById('text-input');
+  const v  = el.value.trim();
+  el.value = '';
+  if (v) send(v);
+}
+function handleKey(e) { if(e.key==='Enter') sendText(); }
+
+// ════════════════════════════════════════════════
+//  TTS — BROWSER SPEECH SYNTHESIS
+// ════════════════════════════════════════════════
+function speak(text) {
+  if (!hasTTS) { setState('normal'); return; }
+  window.speechSynthesis.cancel();
+
+  const utter    = new SpeechSynthesisUtterance(text.substring(0,500));
+  utter.rate     = 1.05;
+  utter.pitch    = 0.9;
+  utter.volume   = 1.0;
+
+  const voices   = window.speechSynthesis.getVoices();
+  const preferred= voices.find(v =>
+    v.name.includes('Google UK English Male') ||
+    v.name.includes('Google UK') ||
+    v.name.includes('Google') ||
+    v.name.includes('David') ||
+    v.name.includes('Daniel')
+  );
+  if (preferred) utter.voice = preferred;
+
+  utter.onstart  = () => setSpeaking(true);
+  utter.onend    = () => setSpeaking(false);
+  utter.onerror  = () => setSpeaking(false);
+
+  window.speechSynthesis.speak(utter);
+}
+
+// ════════════════════════════════════════════════
+//  MICROPHONE WAVEFORM VISUALISER (Web Audio API)
+// ════════════════════════════════════════════════
+async function startVisualiser() {
+  try {
+    audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+    micStream  = await navigator.mediaDevices.getUserMedia({ audio:true });
+    const src  = audioCtx.createMediaStreamSource(micStream);
+    analyser   = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    src.connect(analyser);
+
+    const bars     = document.querySelectorAll('.vbar');
+    const dataArr  = new Uint8Array(analyser.frequencyBinCount);
+    const viz      = document.getElementById('voice-viz');
+    viz.classList.add('active');
+
+    function drawFrame() {
+      analyser.getByteFrequencyData(dataArr);
+      bars.forEach((bar, i) => {
+        const val = (dataArr[i] || 0) / 255;
+        bar.style.height = Math.max(4, val * 38) + 'px';
+        bar.style.transform = `scaleY(${Math.max(0.15, val)})`;
+      });
+      vizFrame = requestAnimationFrame(drawFrame);
+    }
+    drawFrame();
+  } catch(e) {
+    // Visualiser is optional — STT will still work via browser
+    console.warn('Visualiser unavailable:', e.message);
+  }
+}
+
+function stopVisualiser() {
+  if (vizFrame) cancelAnimationFrame(vizFrame);
+  if (micStream) micStream.getTracks().forEach(t=>t.stop());
+  if (audioCtx)  audioCtx.close();
+  audioCtx = analyser = micStream = vizFrame = null;
+  document.getElementById('voice-viz').classList.remove('active');
+  document.querySelectorAll('.vbar').forEach(b=>{ b.style.height='4px'; b.style.transform='scaleY(0.2)'; });
+}
+
+// ════════════════════════════════════════════════
+//  STT — BROWSER SPEECH RECOGNITION
+//  Words appear LIVE in the transcript box
+// ════════════════════════════════════════════════
+function toggleMic() {
+  if (!hasSR) {
+    log('error', 'Speech recognition requires Chrome or Edge');
+    return;
+  }
+  isRecording ? stopMic() : startMic();
+}
+
+function startMic() {
+  if (isSpeaking) window.speechSynthesis.cancel();
+
+  const SR    = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang           = 'en-US';
+  recognition.continuous     = false;
+  recognition.interimResults = true;  // ← live words as you speak
+
+  const tbox = document.getElementById('transcript-box');
+  const micLbl = document.getElementById('mic-label');
+
+  recognition.onstart = () => {
+    isRecording = true;
+    document.getElementById('mic-icon').textContent = '🔴';
+    micLbl.textContent = 'CLICK TO STOP';
+    tbox.value = '';
+    tbox.classList.add('active');
+    setState('listen', 'LISTENING');
+    log('listen', 'Microphone active — speak now...');
+    startVisualiser();
+  };
+
+  recognition.onresult = (e) => {
+    let interimText = '';
+    let finalText   = '';
+
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalText   += t;
+      else                       interimText += t;
+    }
+
+    // Show live words in transcript box
+    tbox.value = finalText || interimText;
+    tbox.scrollTop = tbox.scrollHeight;
+
+    // Also mirror to text input so user can edit before sending
+    if (finalText) {
+      document.getElementById('text-input').value = finalText;
+    }
+  };
+
+  recognition.onend = () => {
+    isRecording = false;
+    document.getElementById('mic-icon').textContent = '🎤';
+    micLbl.textContent = 'CLICK TO SPEAK';
+    tbox.classList.remove('active');
+    stopVisualiser();
+
+    const heard = tbox.value.trim();
+    if (heard) {
+      // Auto-send what was heard
+      document.getElementById('text-input').value = '';
+      send(heard);
+    } else {
+      setState('normal');
+    }
+  };
+
+  recognition.onerror = (e) => {
+    isRecording = false;
+    document.getElementById('mic-icon').textContent = '🎤';
+    micLbl.textContent = 'CLICK TO SPEAK';
+    tbox.classList.remove('active');
+    stopVisualiser();
+
+    if (e.error === 'not-allowed') {
+      log('error', 'Mic blocked! Click 🔒 in browser URL bar → Allow Microphone');
+    } else if (e.error !== 'aborted') {
+      log('error', 'Mic error: ' + e.error);
+    }
+    setState('error', 'MIC ERROR');
+    setTimeout(()=>setState('normal'), 3000);
+  };
+
+  try { recognition.start(); }
+  catch(err) {
+    log('error', 'Cannot start mic: ' + err.message);
+    setState('normal');
+  }
+}
+
+function stopMic() {
+  if (recognition) { recognition.stop(); }
+}
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+window.speechSynthesis?.getVoices();
+window.speechSynthesis?.addEventListener('voiceschanged', ()=>{});
+
+(async () => {
+  try {
+    const r = await fetch('/health');
+    const d = await r.json();
+    log('info', `TTS:ON  STT:${hasSR?'ON':'NEEDS-CHROME'}  API:Connected  Model:${d.model||'gemini'}`);
+  } catch {
+    log('info', `TTS:${hasTTS?'ON':'OFF'}  STT:${hasSR?'ON':'NEEDS-CHROME'}  API:Offline`);
+    log('error', 'Backend not running — open terminal and run: python app.py');
+  }
+  log('robo', 'Hi! I am ROBO AI. Press the MIC button to speak, or type below!');
+  setState('normal');
+})();
+</script>
+</body>
+</html>
